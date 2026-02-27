@@ -1,0 +1,42 @@
+name: Deploy to GitHub Pages
+
+# 設定觸發條件：當有人推送 (push) 任何變更到 main 分支時
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # 允許手動觸發
+
+# 賦予機器人寫入 gh-pages 分支的權限
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 抓取您的最新程式碼與圖片
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      # 2. 在雲端安裝 Node.js 環境
+      - name: Setup Node.js ⚙️
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # 3. 安裝專案所需套件
+      - name: Install Dependencies 📦
+        run: npm install
+
+      # 4. 打包與翻譯程式碼 (相當於您之前在本機打的 npm run build)
+      - name: Build Project 🔧
+        run: npm run build
+
+      # 5. 自動發布到 GitHub Pages (相當於您之前在本機打的 npm run deploy)
+      - name: Deploy to GitHub Pages 🚀
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
