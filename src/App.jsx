@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, Play, Clock, Trophy, CheckCircle2, XCircle } from 'lucide-react';
 
+// === 新增：設定圖片總數 ===
+// 這裡設定你有幾張圖片。如果你準備了 30 張，就把它改成 30。
+const TOTAL_IMAGES = 10;
+
 // --- 音效設定 (使用真實音檔) ---
 // 請確認你的專案目錄 (或 public 資料夾) 中有一個名為 yaha.mp3 的檔案
 const yahaAudio = new Audio('./yaha.mp3');
@@ -76,6 +80,9 @@ export default function App() {
   const [settings, setSettings] = useState({ timeLimit: 60 });
   const [showSettings, setShowSettings] = useState(false);
   
+  // 新增一個暫存的秒數輸入狀態，讓您可以清空它
+  const [tempTimeLimit, setTempTimeLimit] = useState("60");
+  
   const [totalPuddings, setTotalPuddings] = useState(0);
   const [question, setQuestion] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -84,6 +91,9 @@ export default function App() {
   
   const [showLevelUp, setShowLevelUp] = useState(false);
   
+  // 新增：目前隨機挑選的圖片 ID
+  const [currentImageId, setCurrentImageId] = useState(() => Math.floor(Math.random() * TOTAL_IMAGES) + 1);
+
   const timerRef = useRef(null);
 
   // 初始化遊戲
@@ -151,7 +161,7 @@ export default function App() {
   };
 
   // 畫廊/拼圖邏輯
-  const currentAlbumIndex = Math.floor(totalPuddings / 15) % 10 + 1;
+  const currentAlbumIndex = Math.floor(totalPuddings / 15) + 1; // 顯示第幾本相簿
   const progressInAlbum = totalPuddings % 15;
   const piecesUnlocked = Math.floor(progressInAlbum / 5);
 
@@ -179,7 +189,10 @@ export default function App() {
           <Trophy className="text-yellow-500" /> 除法特訓班
         </h1>
         <button 
-          onClick={() => setShowSettings(true)}
+          onClick={() => {
+            setTempTimeLimit(settings.timeLimit.toString()); // 打開設定時，帶入目前秒數
+            setShowSettings(true);
+          }}
           className="p-2 rounded-full hover:bg-yellow-100 text-yellow-600 transition"
         >
           <Settings size={28} />
@@ -312,14 +325,13 @@ export default function App() {
               {totalPuddings} <span className="text-gray-500 text-lg self-end mb-1">個</span>
             </div>
 
-            <p className="text-sm font-bold text-gray-600 mb-2">相簿 {currentAlbumIndex} / 10</p>
+            <p className="text-sm font-bold text-gray-600 mb-2">相簿 {currentAlbumIndex}</p>
             
             {/* 拼圖顯示區 */}
             <div className="w-64 h-64 relative overflow-hidden rounded-xl shadow-inner border-4 border-gray-100 bg-gray-50">
-              {/* 使用真實的吉伊卡哇圖片 */}
-              {/* 請將圖片命名為 chiikawa_1.jpg 到 chiikawa_10.jpg，並放在 images 資料夾中 */}
+              {/* 使用隨機挑選的吉伊卡哇圖片 */}
               <img 
-                src={`./images/chiikawa_${currentAlbumIndex}.jpg`} 
+                src={`./images/chiikawa_${currentImageId}.jpg`} 
                 alt="獎勵圖片" 
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -387,8 +399,8 @@ export default function App() {
               <div className="flex items-center gap-4">
                 <input 
                   type="number" 
-                  value={settings.timeLimit}
-                  onChange={(e) => setSettings({...settings, timeLimit: Math.max(10, parseInt(e.target.value) || 60)})}
+                  value={tempTimeLimit}
+                  onChange={(e) => setTempTimeLimit(e.target.value)}
                   className="w-24 border-2 border-gray-300 p-3 rounded-xl text-center text-xl font-bold focus:border-yellow-500 focus:outline-none focus:ring-4 focus:ring-yellow-200 transition"
                 />
                 <span className="text-gray-500 font-medium">秒 (時間到自動換題)</span>
@@ -397,8 +409,13 @@ export default function App() {
             
             <button 
               onClick={() => {
+                // 儲存時才驗證數字，如果亂填或空白就預設為最低 10 秒
+                let finalTime = parseInt(tempTimeLimit);
+                if (isNaN(finalTime) || finalTime < 10) finalTime = 10;
+                
+                setSettings({...settings, timeLimit: finalTime});
                 setShowSettings(false);
-                if (gameState === 'playing') setTimeLeft(settings.timeLimit);
+                if (gameState === 'playing') setTimeLeft(finalTime);
               }}
               className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-xl text-lg transition shadow-[0_6px_0_rgb(37,99,235)] active:shadow-none active:translate-y-[6px]"
             >
@@ -417,7 +434,7 @@ export default function App() {
             
             <div className="w-full aspect-square relative rounded-2xl overflow-hidden shadow-inner mb-8 border-4 border-gray-100">
                <img 
-                  src={`./images/chiikawa_${currentAlbumIndex > 1 ? currentAlbumIndex - 1 : 10}.jpg`} 
+                  src={`./images/chiikawa_${currentImageId}.jpg`} 
                   alt="解鎖圖片" 
                   className="w-full h-full object-cover"
                 />
@@ -426,6 +443,14 @@ export default function App() {
             <button 
               onClick={() => {
                 setShowLevelUp(false);
+                
+                // 解鎖完畢後，隨機挑選下一張圖片 (確保不會跟剛剛同一張)
+                let nextImageId;
+                do {
+                  nextImageId = Math.floor(Math.random() * TOTAL_IMAGES) + 1;
+                } while (nextImageId === currentImageId && TOTAL_IMAGES > 1);
+                setCurrentImageId(nextImageId);
+                
                 nextQuestion();
               }}
               className="bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold py-4 px-10 rounded-full text-xl transition shadow-[0_6px_0_rgb(202,138,4)] active:shadow-none active:translate-y-[6px] flex items-center justify-center gap-2 mx-auto w-full"
