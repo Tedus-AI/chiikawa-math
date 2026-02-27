@@ -323,7 +323,7 @@ export default function App() {
           </div>
 
           {/* 右側組合：畫廊 + 會動的角色 */}
-          <div className="flex flex-col sm:flex-row items-end gap-6 w-full max-w-lg">
+          <div className="flex flex-col sm:flex-row items-end gap-6 w-full max-w-2xl">
             
             {/* 畫廊區塊 */}
             <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-pink-200 flex flex-col items-center w-full max-w-[16rem] shrink-0">
@@ -368,13 +368,13 @@ export default function App() {
               </div>
             </div>
 
-            {/* 新增：畫廊右側的動態角色區塊 */}
-            <div className="w-28 h-32 flex-shrink-0 flex items-end justify-center mb-4 relative">
+            {/* 新增：畫廊右側的動態角色區塊 (放大版) */}
+            <div className="w-48 sm:w-64 h-48 sm:h-64 flex-shrink-0 flex items-end justify-center mb-2 sm:mb-4 relative">
               <img 
                 /* 如果是觸發狀態就顯示動畫 gif，否則顯示靜止的 png */
                 src={isHachiwareActive ? './hachiware_think.gif' : './hachiware_idle.png'} 
                 alt="吉伊卡哇夥伴" 
-                className={`w-full object-contain transition-all duration-300 origin-bottom
+                className={`w-full h-full object-contain transition-all duration-300 origin-bottom
                   ${isHachiwareActive ? 'animate-bounce scale-110' : 'scale-100 opacity-90'}
                 `}
                 onError={(e) => {
