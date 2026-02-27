@@ -1,17 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, Play, Clock, Trophy, CheckCircle2, XCircle } from 'lucide-react';
 
-// === 新增：設定圖片總數 ===
-// 這裡設定你有幾張圖片。如果你準備了 30 張，就把它改成 30。
-const TOTAL_IMAGES = 10;
-
-// === 新增：強制更新圖片快取機制 ===
-// 未來如果您又換了一批新圖片且檔名一樣，只要把這個數字隨便改掉 (例如改成 "2", "3" 或當天的日期 "0227")
-// 系統就會強迫所有玩家重新下載最新的圖片！
-const IMAGE_VERSION = "2";
+// === GitHub 圖片自動讀取設定 ===
+// 設定您的 GitHub 帳號與專案名稱，系統會自動去抓取 public/images 資料夾裡的所有圖片！
+const GITHUB_REPO = "tedus-ai/chiikawa-math";
+const IMAGES_FOLDER_PATH = "public/images";
 
 // --- 音效設定 (使用真實音檔) ---
-// 請確認你的專案目錄 (或 public 資料夾) 中有一個名為 yaha.mp3 的檔案
 const yahaAudio = new Audio('./yaha.mp3');
 
 const playYaha = () => {
@@ -42,7 +37,6 @@ const generateQuestion = () => {
       current = current * 10 + parseInt(strD[i]);
       if (current >= d || i > 0) {
         let stepR = current % d;
-        // 如果該位數除完有餘數，且不是最後一位，代表有退位給下一位
         if (stepR !== 0 && i < strD.length - 1) carryCount++;
         current = stepR;
       }
@@ -50,7 +44,6 @@ const generateQuestion = () => {
 
     // 條件：必須至少發生一次退位
     if (carryCount > 0) {
-      // 產生詳細的直式計算步驟
       let steps = [];
       current = 0;
       let started = false;
@@ -85,7 +78,6 @@ export default function App() {
   const [settings, setSettings] = useState({ timeLimit: 60 });
   const [showSettings, setShowSettings] = useState(false);
   
-  // 新增一個暫存的秒數輸入狀態，讓您可以清空它
   const [tempTimeLimit, setTempTimeLimit] = useState("60");
   
   const [totalPuddings, setTotalPuddings] = useState(0);
@@ -96,8 +88,8 @@ export default function App() {
   
   const [showLevelUp, setShowLevelUp] = useState(false);
   
-  // 新增：目前隨機挑選的圖片 ID
-  const [currentImageId, setCurrentImageId] = useState(() => Math.floor(Math.random() * TOTAL_IMAGES) + 1);
+  const [imagesList, setImagesList] = useState([]);
+  const [currentImage, setCurrentImage] = useState(null);
 
   const timerRef = useRef(null);
 
@@ -121,7 +113,6 @@ export default function App() {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            // 時間到自動換題
             nextQuestion();
             return settings.timeLimit;
           }
@@ -132,7 +123,31 @@ export default function App() {
     return () => clearInterval(timerRef.current);
   }, [gameState, showLevelUp, nextQuestion, settings.timeLimit]);
 
-  // 處理使用者輸入 (方案 B：輸入商，系統自動推算減法)
+  // 初始化時從 GitHub 自動讀取圖片清單
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${IMAGES_FOLDER_PATH}`);
+        const data = await response.json();
+        
+        if (Array.isArray(data)) {
+          const validImages = data.filter(file => file.type === 'file' && file.name.match(/\.(jpg|jpeg|png|gif)$/i));
+          
+          if (validImages.length > 0) {
+            setImagesList(validImages);
+            const randomImg = validImages[Math.floor(Math.random() * validImages.length)];
+            setCurrentImage(randomImg);
+          }
+        }
+      } catch (error) {
+        console.error("無法自動讀取 GitHub 圖片:", error);
+      }
+    };
+
+    fetchImages();
+  }, []);
+
+  // 處理使用者輸入
   const handleInput = (e) => {
     const val = parseInt(e.target.value);
     if (isNaN(val)) return;
@@ -144,35 +159,30 @@ export default function App() {
       setWrongInput(false);
       
       if (currentStep === question.steps.length - 1) {
-        // 完成此題
         const newPuddings = totalPuddings + 1;
         setTotalPuddings(newPuddings);
-        setCurrentStep(currentStep + 1); // 顯示最後的餘數
+        setCurrentStep(currentStep + 1);
         
-        // 檢查是否解鎖全圖 (15的倍數)
         if (newPuddings > 0 && newPuddings % 15 === 0) {
           setTimeout(() => setShowLevelUp(true), 1000);
         } else {
-          setTimeout(nextQuestion, 1500); // 1.5秒後換題
+          setTimeout(nextQuestion, 1500);
         }
       } else {
-        // 進入下一個位數的計算
         setCurrentStep(currentStep + 1);
       }
     } else {
       setWrongInput(true);
-      setTimeout(() => setWrongInput(false), 500); // 震動動畫結束後清除狀態
+      setTimeout(() => setWrongInput(false), 500);
     }
   };
 
-  // 畫廊/拼圖邏輯
-  const currentAlbumIndex = Math.floor(totalPuddings / 15) + 1; // 顯示第幾本相簿
+  const currentAlbumIndex = Math.floor(totalPuddings / 15) + 1;
   const progressInAlbum = totalPuddings % 15;
   const piecesUnlocked = Math.floor(progressInAlbum / 5);
 
   return (
     <div className="min-h-screen bg-[#FFFBF0] font-sans text-gray-800 flex flex-col items-center py-8 relative">
-      {/* 注入震動動畫的 CSS */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
@@ -188,14 +198,14 @@ export default function App() {
         }
       `}</style>
 
-      {/* 頂部導航與設定 */}
+      {/* 頂部導航 */}
       <div className="w-full max-w-4xl px-6 flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-yellow-600 flex items-center gap-2">
           <Trophy className="text-yellow-500" /> 除法特訓班
         </h1>
         <button 
           onClick={() => {
-            setTempTimeLimit(settings.timeLimit.toString()); // 打開設定時，帶入目前秒數
+            setTempTimeLimit(settings.timeLimit.toString());
             setShowSettings(true);
           }}
           className="p-2 rounded-full hover:bg-yellow-100 text-yellow-600 transition"
@@ -204,7 +214,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* 遊戲主畫面 */}
       {gameState === 'playing' ? (
         <div className="w-full max-w-4xl px-4 flex flex-col md:flex-row gap-8 items-start justify-center">
           
@@ -215,7 +224,6 @@ export default function App() {
                 <Clock size={20} />
                 <span>{timeLeft} 秒</span>
               </div>
-              {/* 倒數計時條 */}
               <div className="w-1/2 bg-gray-200 h-3 rounded-full overflow-hidden">
                 <div 
                   className={`h-full transition-all duration-1000 ${timeLeft <= 10 ? 'bg-red-400' : 'bg-yellow-400'}`}
@@ -224,22 +232,17 @@ export default function App() {
               </div>
             </div>
 
-            {/* 直式除法網格渲染 */}
             {question && (
               <div className="flex justify-center my-10 text-2xl font-mono leading-none">
                 <div 
                   className="grid gap-y-2 relative" 
-                  style={{ 
-                    gridTemplateColumns: `repeat(${question.D.toString().length + 2}, 2rem)` 
-                  }}
+                  style={{ gridTemplateColumns: `repeat(${question.D.toString().length + 2}, 2rem)` }}
                 >
-                  {/* 頂部橫線 (被除數上方) */}
                   <div 
                     style={{ gridRow: 1, gridColumn: `3 / ${3 + question.D.toString().length}` }} 
                     className="border-b-4 border-gray-700 h-full translate-y-[0.6rem] z-0"
                   />
 
-                  {/* 1. 商數列 (Row 1) */}
                   {question.steps.map((step, i) => {
                     const col = 3 + step.index;
                     if (i < currentStep) {
@@ -258,14 +261,12 @@ export default function App() {
                     return null;
                   })}
 
-                  {/* 2. 除數與被除數 (Row 2) */}
                   <div style={{gridRow: 2, gridColumn: 1}} className="text-right pr-2 font-bold mt-2">{question.d}</div>
                   <div style={{gridRow: 2, gridColumn: 2}} className="text-center font-bold text-gray-400 mt-2">)</div>
                   {question.D.toString().split('').map((char, i) => (
                     <div key={`D-${i}`} style={{gridRow: 2, gridColumn: 3 + i}} className="text-center font-bold mt-2">{char}</div>
                   ))}
 
-                  {/* 3. 計算步驟 (減法與餘數) */}
                   {question.steps.map((step, i) => {
                     if (i < currentStep || (i === currentStep && currentStep === question.steps.length)) {
                       const rSub = 3 + i * 3;
@@ -274,33 +275,24 @@ export default function App() {
                       const subStr = step.sub.toString();
                       const remStr = step.rem.toString();
                       
-                      const alignCol = 3 + step.index; // 對齊當前處理的位數
+                      const alignCol = 3 + step.index;
                       const startCol = alignCol - subStr.length + 1;
 
                       return (
                         <React.Fragment key={`step-${i}`}>
-                          {/* 減號 */}
                           <div style={{gridRow: rSub, gridColumn: startCol - 1}} className="text-center font-bold text-gray-400 mt-1">-</div>
-                          {/* 減數 */}
                           {subStr.split('').map((char, j) => (
                             <div key={`sub-${i}-${j}`} style={{gridRow: rSub, gridColumn: startCol + j}} className="text-center text-gray-600 mt-1">{char}</div>
                           ))}
-                          
-                          {/* 分隔線 */}
                           <div 
                             style={{gridRow: rLine, gridColumn: `${startCol - 1} / ${alignCol + (step.broughtDown ? 2 : 1)}`}} 
                             className="border-b-2 border-gray-400 my-1" 
                           />
-
-                          {/* 餘數 */}
                           {remStr.split('').map((char, j) => (
                             <div key={`rem-${i}-${j}`} style={{gridRow: rRem, gridColumn: alignCol - remStr.length + 1 + j}} className="text-center font-bold mt-1">
-                              {/* 若是最後一步，特別標示餘數 */}
                               {i === question.steps.length - 1 ? <span className="text-red-500 bg-red-50 px-1 rounded">{char}</span> : char}
                             </div>
                           ))}
-                          
-                          {/* 降下來的數字 */}
                           {step.broughtDown && (
                             <div style={{gridRow: rRem, gridColumn: alignCol + 1}} className="text-center font-bold text-green-600 mt-1">
                               {step.broughtDown}
@@ -320,7 +312,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 右側：吉伊卡哇畫廊 (遊戲化獎勵) */}
+          {/* 右側：吉伊卡哇畫廊 */}
           <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-pink-200 flex flex-col items-center w-full max-w-sm">
             <h2 className="text-xl font-bold text-pink-500 mb-4 flex items-center gap-2">
               <span role="img" aria-label="pudding">🍮</span> 我的布丁收集
@@ -332,16 +324,17 @@ export default function App() {
 
             <p className="text-sm font-bold text-gray-600 mb-2">相簿 {currentAlbumIndex}</p>
             
-            {/* 拼圖顯示區 */}
-            <div className="w-64 h-64 relative overflow-hidden rounded-xl shadow-inner border-4 border-gray-100 bg-gray-50">
-              {/* 使用隨機挑選的吉伊卡哇圖片，並加上版本號強迫更新 */}
-              <img 
-                src={`./images/chiikawa_${currentImageId}.jpg?v=${IMAGE_VERSION}`} 
-                alt="獎勵圖片" 
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+            <div className="w-64 h-64 relative overflow-hidden rounded-xl shadow-inner border-4 border-gray-100 bg-gray-50 flex items-center justify-center">
+              {!currentImage && <div className="text-gray-400 font-bold animate-pulse">連線讀取圖片中...</div>}
               
-              {/* 遮罩層 (3等份) */}
+              {currentImage && (
+                <img 
+                  src={`${currentImage.download_url}?v=${currentImage.sha}`} 
+                  alt="獎勵圖片" 
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
+              
               <div className="absolute inset-0 flex">
                 {[0, 1, 2].map((i) => (
                   <div 
@@ -361,10 +354,8 @@ export default function App() {
               再獲得 <span className="text-pink-500 font-bold">{5 - (progressInAlbum % 5)}</span> 個布丁可解鎖下一塊！
             </div>
           </div>
-
         </div>
       ) : (
-        /* 首頁選單 */
         <div className="flex-1 flex flex-col items-center justify-center -mt-20">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl text-center border-8 border-yellow-300 max-w-lg">
             <div className="text-6xl mb-6">🍮</div>
@@ -383,7 +374,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 家長管理設定 Modal */}
+      {/* 設定 Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white p-8 rounded-3xl shadow-2xl w-96 relative border-4 border-gray-100">
@@ -407,18 +398,16 @@ export default function App() {
                   inputMode="numeric"
                   value={tempTimeLimit}
                   onChange={(e) => {
-                    // 只保留數字，讓您可以完全清空 (變成空字串)
                     setTempTimeLimit(e.target.value.replace(/\D/g, ''));
                   }}
                   className="w-24 border-2 border-gray-300 p-3 rounded-xl text-center text-xl font-bold focus:border-yellow-500 focus:outline-none focus:ring-4 focus:ring-yellow-200 transition"
                 />
-                <span className="text-gray-500 font-medium">秒 (時間到自動換題)</span>
+                <span className="text-gray-500 font-medium">秒</span>
               </div>
             </div>
             
             <button 
               onClick={() => {
-                // 儲存時才驗證數字。若空白、亂填或小於 1，則給予預設值 10 秒防呆
                 let finalTime = parseInt(tempTimeLimit, 10);
                 if (isNaN(finalTime) || finalTime < 1) finalTime = 10;
                 
@@ -434,31 +423,38 @@ export default function App() {
         </div>
       )}
 
-      {/* 全圖解鎖 Modal */}
+      {/* 解鎖圖片 Modal */}
       {showLevelUp && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-md">
           <div className="bg-white p-8 rounded-[3rem] shadow-2xl text-center border-8 border-pink-400 max-w-md w-full animate-bounce">
             <h2 className="text-4xl font-extrabold text-pink-500 mb-2">太棒了！</h2>
             <p className="text-xl text-pink-400 font-bold mb-6">解鎖了一張完整的相片！</p>
             
-            <div className="w-full aspect-square relative rounded-2xl overflow-hidden shadow-inner mb-8 border-4 border-gray-100">
-               <img 
-                  src={`./images/chiikawa_${currentImageId}.jpg?v=${IMAGE_VERSION}`} 
-                  alt="解鎖圖片" 
-                  className="w-full h-full object-cover"
-                />
+            <div className="w-full aspect-square relative rounded-2xl overflow-hidden shadow-inner mb-8 border-4 border-gray-100 flex items-center justify-center bg-gray-50">
+               {currentImage && (
+                 <img 
+                    src={`${currentImage.download_url}?v=${currentImage.sha}`} 
+                    alt="解鎖圖片" 
+                    className="w-full h-full object-cover"
+                  />
+               )}
             </div>
 
             <button 
               onClick={() => {
                 setShowLevelUp(false);
                 
-                // 解鎖完畢後，隨機挑選下一張圖片 (確保不會跟剛剛同一張)
-                let nextImageId;
-                do {
-                  nextImageId = Math.floor(Math.random() * TOTAL_IMAGES) + 1;
-                } while (nextImageId === currentImageId && TOTAL_IMAGES > 1);
-                setCurrentImageId(nextImageId);
+                if (imagesList.length > 0) {
+                  let nextImage;
+                  if (imagesList.length > 1) {
+                    do {
+                      nextImage = imagesList[Math.floor(Math.random() * imagesList.length)];
+                    } while (nextImage.name === currentImage?.name);
+                  } else {
+                    nextImage = imagesList[0];
+                  }
+                  setCurrentImage(nextImage);
+                }
                 
                 nextQuestion();
               }}
