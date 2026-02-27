@@ -5,6 +5,11 @@ import { Settings, Play, Clock, Trophy, CheckCircle2, XCircle } from 'lucide-rea
 // 這裡設定你有幾張圖片。如果你準備了 30 張，就把它改成 30。
 const TOTAL_IMAGES = 10;
 
+// === 新增：強制更新圖片快取機制 ===
+// 未來如果您又換了一批新圖片且檔名一樣，只要把這個數字隨便改掉 (例如改成 "2", "3" 或當天的日期 "0227")
+// 系統就會強迫所有玩家重新下載最新的圖片！
+const IMAGE_VERSION = "2";
+
 // --- 音效設定 (使用真實音檔) ---
 // 請確認你的專案目錄 (或 public 資料夾) 中有一個名為 yaha.mp3 的檔案
 const yahaAudio = new Audio('./yaha.mp3');
@@ -329,9 +334,9 @@ export default function App() {
             
             {/* 拼圖顯示區 */}
             <div className="w-64 h-64 relative overflow-hidden rounded-xl shadow-inner border-4 border-gray-100 bg-gray-50">
-              {/* 使用隨機挑選的吉伊卡哇圖片 */}
+              {/* 使用隨機挑選的吉伊卡哇圖片，並加上版本號強迫更新 */}
               <img 
-                src={`./images/chiikawa_${currentImageId}.jpg`} 
+                src={`./images/chiikawa_${currentImageId}.jpg?v=${IMAGE_VERSION}`} 
                 alt="獎勵圖片" 
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -438,7 +443,7 @@ export default function App() {
             
             <div className="w-full aspect-square relative rounded-2xl overflow-hidden shadow-inner mb-8 border-4 border-gray-100">
                <img 
-                  src={`./images/chiikawa_${currentImageId}.jpg`} 
+                  src={`./images/chiikawa_${currentImageId}.jpg?v=${IMAGE_VERSION}`} 
                   alt="解鎖圖片" 
                   className="w-full h-full object-cover"
                 />
