@@ -398,9 +398,13 @@ export default function App() {
               </label>
               <div className="flex items-center gap-4">
                 <input 
-                  type="number" 
+                  type="text" 
+                  inputMode="numeric"
                   value={tempTimeLimit}
-                  onChange={(e) => setTempTimeLimit(e.target.value)}
+                  onChange={(e) => {
+                    // 只保留數字，讓您可以完全清空 (變成空字串)
+                    setTempTimeLimit(e.target.value.replace(/\D/g, ''));
+                  }}
                   className="w-24 border-2 border-gray-300 p-3 rounded-xl text-center text-xl font-bold focus:border-yellow-500 focus:outline-none focus:ring-4 focus:ring-yellow-200 transition"
                 />
                 <span className="text-gray-500 font-medium">秒 (時間到自動換題)</span>
@@ -409,9 +413,9 @@ export default function App() {
             
             <button 
               onClick={() => {
-                // 儲存時才驗證數字，如果亂填或空白就預設為最低 10 秒
-                let finalTime = parseInt(tempTimeLimit);
-                if (isNaN(finalTime) || finalTime < 10) finalTime = 10;
+                // 儲存時才驗證數字。若空白、亂填或小於 1，則給予預設值 10 秒防呆
+                let finalTime = parseInt(tempTimeLimit, 10);
+                if (isNaN(finalTime) || finalTime < 1) finalTime = 10;
                 
                 setSettings({...settings, timeLimit: finalTime});
                 setShowSettings(false);
