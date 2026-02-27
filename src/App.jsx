@@ -2,17 +2,27 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, Play, Clock, Trophy, CheckCircle2, XCircle } from 'lucide-react';
 
 // === GitHub 圖片自動讀取設定 ===
-// 設定您的 GitHub 帳號與專案名稱，系統會自動去抓取 public/images 資料夾裡的所有圖片！
 const GITHUB_REPO = "tedus-ai/chiikawa-math";
 const IMAGES_FOLDER_PATH = "public/images";
 
 // --- 音效設定 (使用真實音檔) ---
 const yahaAudio = new Audio('./yaha.mp3');
+// 新增：收集完成的專屬語音
+const yahayaAudio = new Audio('./yahaya.mp3');
 
 const playYaha = () => {
   try {
-    yahaAudio.currentTime = 0; // 每次播放前歸零，允許連續快速播放
+    yahaAudio.currentTime = 0;
     yahaAudio.play().catch(e => console.log("等待使用者互動後才能播放音效:", e));
+  } catch (e) {
+    console.log("播放音效失敗", e);
+  }
+};
+
+const playYahaya = () => {
+  try {
+    yahayaAudio.currentTime = 0;
+    yahayaAudio.play().catch(e => console.log("等待使用者互動後才能播放音效:", e));
   } catch (e) {
     console.log("播放音效失敗", e);
   }
@@ -21,18 +31,17 @@ const playYaha = () => {
 // --- 題庫生成邏輯 ---
 const generateQuestion = () => {
   while (true) {
-    let d = Math.floor(Math.random() * 8) + 2; // 除數 2~9
+    let d = Math.floor(Math.random() * 8) + 2; 
     let isThreeDigit = Math.random() > 0.5;
-    let D = isThreeDigit ? Math.floor(Math.random() * 900) + 100 : Math.floor(Math.random() * 90) + 10; // 被除數 10~999
+    let D = isThreeDigit ? Math.floor(Math.random() * 900) + 100 : Math.floor(Math.random() * 90) + 10; 
     
     let r = D % d;
-    if (r === 0) continue; // 條件：必須有餘數
+    if (r === 0) continue; 
 
     let strD = D.toString();
     let carryCount = 0;
     let current = 0;
     
-    // 模擬除法過程，檢查是否發生「無法整除需退位」的狀況
     for(let i = 0; i < strD.length; i++) {
       current = current * 10 + parseInt(strD[i]);
       if (current >= d || i > 0) {
@@ -42,7 +51,6 @@ const generateQuestion = () => {
       }
     }
 
-    // 條件：必須至少發生一次退位
     if (carryCount > 0) {
       let steps = [];
       current = 0;
@@ -74,7 +82,7 @@ const generateQuestion = () => {
 
 // --- 主應用程式元件 ---
 export default function App() {
-  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing'
+  const [gameState, setGameState] = useState('menu'); 
   const [settings, setSettings] = useState({ timeLimit: 60 });
   const [showSettings, setShowSettings] = useState(false);
   
@@ -91,15 +99,16 @@ export default function App() {
   const [imagesList, setImagesList] = useState([]);
   const [currentImage, setCurrentImage] = useState(null);
 
+  // 新增：控制吉伊卡哇圖片是否要「動起來」的狀態
+  const [isHachiwareActive, setIsHachiwareActive] = useState(false);
+
   const timerRef = useRef(null);
 
-  // 初始化遊戲
   const startGame = () => {
     setGameState('playing');
     nextQuestion();
   };
 
-  // 產生下一題
   const nextQuestion = useCallback(() => {
     setQuestion(generateQuestion());
     setCurrentStep(0);
@@ -107,7 +116,6 @@ export default function App() {
     setWrongInput(false);
   }, [settings.timeLimit]);
 
-  // 計時器邏輯
   useEffect(() => {
     if (gameState === 'playing' && !showLevelUp) {
       timerRef.current = setInterval(() => {
@@ -123,7 +131,6 @@ export default function App() {
     return () => clearInterval(timerRef.current);
   }, [gameState, showLevelUp, nextQuestion, settings.timeLimit]);
 
-  // 初始化時從 GitHub 自動讀取圖片清單
   useEffect(() => {
     const fetchImages = async () => {
       try {
@@ -147,7 +154,6 @@ export default function App() {
     fetchImages();
   }, []);
 
-  // 處理使用者輸入
   const handleInput = (e) => {
     const val = parseInt(e.target.value);
     if (isNaN(val)) return;
@@ -158,12 +164,17 @@ export default function App() {
       playYaha();
       setWrongInput(false);
       
+      // 觸發右側吉伊卡哇動畫，維持 2 秒
+      setIsHachiwareActive(true);
+      setTimeout(() => setIsHachiwareActive(false), 2000);
+      
       if (currentStep === question.steps.length - 1) {
         const newPuddings = totalPuddings + 1;
         setTotalPuddings(newPuddings);
         setCurrentStep(currentStep + 1);
         
         if (newPuddings > 0 && newPuddings % 15 === 0) {
+          playYahaya(); // 播放收集完成的專屬音效
           setTimeout(() => setShowLevelUp(true), 1000);
         } else {
           setTimeout(nextQuestion, 1500);
@@ -182,7 +193,7 @@ export default function App() {
   const piecesUnlocked = Math.floor(progressInAlbum / 5);
 
   return (
-    <div className="min-h-screen bg-[#FFFBF0] font-sans text-gray-800 flex flex-col items-center py-8 relative">
+    <div className="min-h-screen bg-[#FFFBF0] font-sans text-gray-800 flex flex-col items-center py-8 relative overflow-x-hidden">
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
@@ -198,8 +209,7 @@ export default function App() {
         }
       `}</style>
 
-      {/* 頂部導航 */}
-      <div className="w-full max-w-4xl px-6 flex justify-between items-center mb-8">
+      <div className="w-full max-w-5xl px-6 flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-yellow-600 flex items-center gap-2">
           <Trophy className="text-yellow-500" /> 除法特訓班
         </h1>
@@ -215,10 +225,10 @@ export default function App() {
       </div>
 
       {gameState === 'playing' ? (
-        <div className="w-full max-w-4xl px-4 flex flex-col md:flex-row gap-8 items-start justify-center">
+        <div className="w-full max-w-5xl px-4 flex flex-col md:flex-row gap-6 items-start justify-center">
           
           {/* 左側：直式計算區 */}
-          <div className="bg-white p-8 rounded-3xl shadow-xl border-4 border-yellow-200 flex-1 w-full max-w-md">
+          <div className="bg-white p-8 rounded-3xl shadow-xl border-4 border-yellow-200 flex-1 w-full max-w-md shrink-0">
             <div className="flex justify-between items-center mb-6 bg-yellow-50 p-3 rounded-xl">
               <div className="flex items-center gap-2 text-yellow-600 font-bold text-lg">
                 <Clock size={20} />
@@ -312,48 +322,75 @@ export default function App() {
             </div>
           </div>
 
-          {/* 右側：吉伊卡哇畫廊 */}
-          <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-pink-200 flex flex-col items-center w-full max-w-sm">
-            <h2 className="text-xl font-bold text-pink-500 mb-4 flex items-center gap-2">
-              <span role="img" aria-label="pudding">🍮</span> 我的布丁收集
-            </h2>
+          {/* 右側組合：畫廊 + 會動的角色 */}
+          <div className="flex flex-col sm:flex-row items-end gap-6 w-full max-w-lg">
             
-            <div className="flex gap-2 text-2xl font-bold text-orange-500 mb-6 bg-orange-50 px-6 py-2 rounded-full border border-orange-200">
-              {totalPuddings} <span className="text-gray-500 text-lg self-end mb-1">個</span>
-            </div>
+            {/* 畫廊區塊 */}
+            <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-pink-200 flex flex-col items-center w-full max-w-[16rem] shrink-0">
+              <h2 className="text-xl font-bold text-pink-500 mb-4 flex items-center gap-2">
+                <span role="img" aria-label="pudding">🍮</span> 我的布丁收集
+              </h2>
+              
+              <div className="flex gap-2 text-2xl font-bold text-orange-500 mb-6 bg-orange-50 px-6 py-2 rounded-full border border-orange-200">
+                {totalPuddings} <span className="text-gray-500 text-lg self-end mb-1">個</span>
+              </div>
 
-            <p className="text-sm font-bold text-gray-600 mb-2">相簿 {currentAlbumIndex}</p>
-            
-            <div className="w-64 h-64 relative overflow-hidden rounded-xl shadow-inner border-4 border-gray-100 bg-gray-50 flex items-center justify-center">
-              {!currentImage && <div className="text-gray-400 font-bold animate-pulse">連線讀取圖片中...</div>}
+              <p className="text-sm font-bold text-gray-600 mb-2">相簿 {currentAlbumIndex}</p>
               
-              {currentImage && (
-                <img 
-                  src={`${currentImage.download_url}?v=${currentImage.sha}`} 
-                  alt="獎勵圖片" 
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              )}
-              
-              <div className="absolute inset-0 flex">
-                {[0, 1, 2].map((i) => (
-                  <div 
-                    key={i} 
-                    className={`flex-1 bg-pink-300 border-r border-pink-400 border-dashed last:border-0 flex items-center justify-center transition-opacity duration-1000 ease-in-out
-                      ${piecesUnlocked > i ? 'opacity-0' : 'opacity-100'}`}
-                  >
-                    <div className="bg-white/50 rounded-full p-2 backdrop-blur-sm">
-                      <span className="text-xl">❓</span>
+              <div className="w-48 h-48 relative overflow-hidden rounded-xl shadow-inner border-4 border-gray-100 bg-gray-50 flex items-center justify-center">
+                {!currentImage && <div className="text-gray-400 font-bold animate-pulse text-sm">連線讀取圖片中...</div>}
+                
+                {currentImage && (
+                  <img 
+                    src={`${currentImage.download_url}?v=${currentImage.sha}`} 
+                    alt="獎勵圖片" 
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )}
+                
+                <div className="absolute inset-0 flex">
+                  {[0, 1, 2].map((i) => (
+                    <div 
+                      key={i} 
+                      className={`flex-1 bg-pink-300 border-r border-pink-400 border-dashed last:border-0 flex items-center justify-center transition-opacity duration-1000 ease-in-out
+                        ${piecesUnlocked > i ? 'opacity-0' : 'opacity-100'}`}
+                    >
+                      <div className="bg-white/50 rounded-full p-1 backdrop-blur-sm">
+                        <span className="text-lg">❓</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mt-4 text-xs text-gray-500 font-medium text-center">
+                再獲得 <span className="text-pink-500 font-bold">{5 - (progressInAlbum % 5)}</span> 個布丁<br/>可解鎖下一塊！
               </div>
             </div>
-            
-            <div className="mt-4 text-sm text-gray-500 font-medium">
-              再獲得 <span className="text-pink-500 font-bold">{5 - (progressInAlbum % 5)}</span> 個布丁可解鎖下一塊！
+
+            {/* 新增：畫廊右側的動態角色區塊 */}
+            <div className="w-28 h-32 flex-shrink-0 flex items-end justify-center mb-4 relative">
+              <img 
+                /* 如果是觸發狀態就顯示動畫 gif，否則顯示靜止的 png */
+                src={isHachiwareActive ? './hachiware_think.gif' : './hachiware_idle.png'} 
+                alt="吉伊卡哇夥伴" 
+                className={`w-full object-contain transition-all duration-300 origin-bottom
+                  ${isHachiwareActive ? 'animate-bounce scale-110' : 'scale-100 opacity-90'}
+                `}
+                onError={(e) => {
+                  // 防呆機制：如果家長沒有放 idle.png，則退回顯示原本的 gif，但利用 css 灰階讓它看起來像靜止
+                  if (e.target.src.includes('idle.png')) {
+                    e.target.src = './hachiware_think.gif';
+                    e.target.style.filter = 'grayscale(80%) contrast(80%)';
+                  } else {
+                    e.target.style.filter = 'none';
+                  }
+                }}
+              />
             </div>
+
           </div>
+
         </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center -mt-20">
